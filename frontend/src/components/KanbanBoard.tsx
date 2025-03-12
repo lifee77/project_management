@@ -1,116 +1,262 @@
 import React, { useState, useEffect } from 'react';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { Box, Paper, Typography, Grid } from '@mui/material';
-import TaskCard from './TaskCard';
+import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
+import {
+  Box,
+  Paper,
+  Typography,
+  Grid,
+  Card,
+  CardContent,
+  Chip,
+  Divider
+} from '@mui/material';
 import { getTasks, updateTask } from '../services/api';
 
-const columns = [
-  { id: 'To Do', title: 'To Do' },
-  { id: 'In Progress', title: 'In Progress' },
-  { id: 'In Review', title: 'In Review' },
-  { id: 'Done', title: 'Done' }
-];
+interface KanbanTask {
+  _id: string;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  assignee?: string;
+}
+
+interface Column {
+  id: string;
+  title: string;
+  tasks: KanbanTask[];
+}
 
 interface KanbanBoardProps {
   sprintId: string;
 }
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ sprintId }) => {
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [columns, setColumns] = useState<Record<string, Column>>({
+    todo: { id: 'todo', title: 'To Do', tasks: [] },
+    'in-progress': { id: 'in-progress', title: 'In Progress', tasks: [] },
+    review: { id: 'review', title: 'Review', tasks: [] },
+    done: { id: 'done', title: 'Done', tasks: [] }
+  });
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        setLoading(true);
-        const response = await getTasks({ sprintId, status: { $ne: 'Backlog' } });
-        setTasks(response.data);
-      } catch (error) {
-        console.error('Error fetching tasks:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTasks();
+    if (sprintId) {
+      fetchTasks();
+    }
   }, [sprintId]);
 
-  const handleDragEnd = async (result: any) => {
-    const { destination, source, draggableId } = result;
-
-    if (!destination) return;
-
-    if (
-      destination.droppableId === source.droppableId &&
-      destination.index === source.index
-    ) {
-      return;
-    }
-
-    // Find task that was dragged
-    const task = tasks.find(t => t._id === draggableId);
-    if (!task) return;
-
-    // Update task locally first for optimistic UI
-    const updatedTask = { ...task, status: destination.droppableId };
-    setTasks(tasks.map(t => t._id === draggableId ? updatedTask : t));
-
-    // Then update in the backend
+  const fetchTasks = async () => {
     try {
-      await updateTask(draggableId, { status: destination.droppableId });
+      setLoading(true);
+      const response = await getTasks({ sprintId });
+      
+      // Group tasks by status
+      const updatedColumns = { ...columns };
+      
+      // Reset tasks in all columns
+      Object.keys(updatedColumns).forEach(colId => {
+        updatedColumns[colId].tasks = [];
+      });
+      
+      // Add tasks to appropriate columns
+      response.data.forEach((task: KanbanTask) => {
+        const status = task.status || 'todo';
+        if (updatedColumns[status]) {
+          updatedColumns[status].tasks.push(task);
+        } else {
+          updatedColumns.todo.tasks.push(task);
+        }
+      });
+      
+      setColumns(updatedColumns);
     } catch (error) {
-      console.error('Error updating task status:', error);
-      // Revert to original state if there was an error
-      setTasks(tasks);
+      console.error('Error fetching tasks:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getTasksByStatus = (status: string) => {
-    return tasks.filter(task => task.status === status);
+  const handleDragEnd = async (result: DropResult) => {
+    const { source, destination, draggableId } = result;
+    
+    // Dropped outside a valid droppable
+    if (!destination) return;
+    
+    // Dropped in the same position
+    if (
+      source.droppableId === destination.droppableId &&
+      source.index === destination.index
+    ) return;
+    
+    // Get the source and destination columns
+    const sourceColumn = columns[source.droppableId];
+    const destColumn = columns[destination.droppableId];
+    
+    if (sourceColumn === destColumn) {
+      // Moving within the same column
+      const newTasks = Array.from(sourceColumn.tasks);
+      const [movedTask] = newTasks.splice(source.index, 1);
+      newTasks.splice(destination.index, 0, movedTask);
+      
+      const newColumn = {
+        ...sourceColumn,
+        tasks: newTasks
+      };
+      
+      setColumns({
+        ...columns,
+        [sourceColumn.id]: newColumn
+      });
+    } else {
+      // Moving to a different column
+      const sourceTasks = Array.from(sourceColumn.tasks);
+      const [movedTask] = sourceTasks.splice(source.index, 1);
+      
+      // Update the task status to match the new column
+      const updatedTask = { ...movedTask, status: destColumn.id };
+      
+      const destTasks = Array.from(destColumn.tasks);
+      destTasks.splice(destination.index, 0, updatedTask);
+      
+      setColumns({
+        ...columns,
+        [sourceColumn.id]: {
+          ...sourceColumn,
+          tasks: sourceTasks
+        },
+        [destColumn.id]: {
+          ...destColumn,
+          tasks: destTasks
+        }
+      });
+      
+      // Update the task status in the backend
+      try {
+        await updateTask(draggableId, { status: destColumn.id });
+      } catch (error) {
+        console.error('Error updating task status:', error);
+        // Revert the UI change on error
+        fetchTasks();
+      }
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority.toLowerCase()) {
+      case 'high': return 'error';
+      case 'medium': return 'warning';
+      case 'low': return 'success';
+      default: return 'default';
+    }
   };
 
   if (loading) {
-    return <Typography>Loading...</Typography>;
+    return <Typography>Loading tasks...</Typography>;
   }
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      <Grid container spacing={2} sx={{ mt: 2 }}>
-        {columns.map(column => (
+      <Grid container spacing={2}>
+        {Object.values(columns).map(column => (
           <Grid item xs={12} sm={6} md={3} key={column.id}>
-            <Paper
-              sx={{
-                p: 2,
-                backgroundColor: '#f5f5f5',
-                height: '100%',
-                minHeight: 500
+            <Paper 
+              sx={{ 
+                p: 2, 
+                bgcolor: 'background.default',
+                height: '70vh',
+                display: 'flex',
+                flexDirection: 'column'
               }}
             >
-              <Typography variant="h6" gutterBottom>
-                {column.title} ({getTasksByStatus(column.id).length})
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  pb: 1,
+                  mb: 1,
+                  borderBottom: '2px solid',
+                  borderBottomColor: theme => {
+                    switch (column.id) {
+                      case 'todo': return theme.palette.info.main;
+                      case 'in-progress': return theme.palette.warning.main;
+                      case 'review': return theme.palette.secondary.main;
+                      case 'done': return theme.palette.success.main;
+                      default: return theme.palette.primary.main;
+                    }
+                  }
+                }}
+              >
+                {column.title} ({column.tasks.length})
               </Typography>
+              
               <Droppable droppableId={column.id}>
                 {(provided) => (
                   <Box
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    sx={{ minHeight: 400 }}
+                    sx={{
+                      flexGrow: 1,
+                      minHeight: '100px',
+                      overflowY: 'auto'
+                    }}
                   >
-                    {getTasksByStatus(column.id).map((task, index) => (
+                    {column.tasks.map((task, index) => (
                       <Draggable
                         key={task._id}
                         draggableId={task._id}
                         index={index}
                       >
-                        {(provided) => (
-                          <Box
+                        {(provided, snapshot) => (
+                          <Card
                             ref={provided.innerRef}
                             {...provided.draggableProps}
                             {...provided.dragHandleProps}
-                            sx={{ mb: 2 }}
+                            sx={{
+                              mb: 2,
+                              boxShadow: snapshot.isDragging ? 6 : 1,
+                              '&:hover': {
+                                boxShadow: 3
+                              }
+                            }}
                           >
-                            <TaskCard task={task} />
-                          </Box>
+                            <CardContent>
+                              <Typography variant="subtitle1" gutterBottom>
+                                {task.title}
+                              </Typography>
+                              
+                              {task.description && (
+                                <Typography 
+                                  variant="body2" 
+                                  color="text.secondary"
+                                  sx={{
+                                    mb: 1,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical'
+                                  }}
+                                >
+                                  {task.description}
+                                </Typography>
+                              )}
+                              
+                              <Divider sx={{ my: 1 }} />
+                              
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Chip 
+                                  size="small" 
+                                  label={task.priority}
+                                  color={getPriorityColor(task.priority) as any}
+                                />
+                                {task.assignee && (
+                                  <Typography variant="caption" sx={{ fontStyle: 'italic' }}>
+                                    {task.assignee}
+                                  </Typography>
+                                )}
+                              </Box>
+                            </CardContent>
+                          </Card>
                         )}
                       </Draggable>
                     ))}
