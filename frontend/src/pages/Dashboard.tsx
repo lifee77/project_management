@@ -13,9 +13,11 @@ import {
   Divider,
   Chip
 } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import ProjectSelector from '../components/ProjectSelector';
 import { getSprints, getTasks } from '../services/api';
 import AddSprintForm from '../components/AddSprintForm';
+import AddProjectForm from '../components/AddProjectForm';
 
 const Dashboard = () => {
   const [selectedProject, setSelectedProject] = useState<string>('');
@@ -27,6 +29,7 @@ const Dashboard = () => {
   });
   const [loading, setLoading] = useState<boolean>(false);
   const [showAddSprintForm, setShowAddSprintForm] = useState<boolean>(false);
+  const [showAddProjectForm, setShowAddProjectForm] = useState<boolean>(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -42,9 +45,16 @@ const Dashboard = () => {
     try {
       setLoading(true);
       const response = await getSprints({ project: selectedProject });
-      setSprints(response.data);
+      // Ensure sprints is always an array
+      if (Array.isArray(response.data)) {
+        setSprints(response.data);
+      } else {
+        console.error('Expected array of sprints but got:', response.data);
+        setSprints([]);
+      }
     } catch (error) {
       console.error('Error fetching sprints:', error);
+      setSprints([]);
     } finally {
       setLoading(false);
     }
@@ -84,6 +94,12 @@ const Dashboard = () => {
     fetchSprints();
   };
 
+  const handleProjectAdded = () => {
+    setShowAddProjectForm(false);
+    // Force a re-render of the ProjectSelector which should fetch new projects
+    setSelectedProject('');
+  };
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Typography variant="h4" component="h1" gutterBottom>
@@ -98,9 +114,18 @@ const Dashboard = () => {
           />
         </Grid>
         <Grid item>
+          <Button 
+            variant="contained" 
+            color="secondary"
+            startIcon={<AddIcon />}
+            onClick={() => setShowAddProjectForm(true)}
+            sx={{ mr: 1 }}
+          >
+            New Project
+          </Button>
           {selectedProject && (
             <Button 
-              variant="contained" 
+              variant="contained"
               onClick={() => setShowAddSprintForm(true)}
             >
               Add Sprint
@@ -184,7 +209,7 @@ const Dashboard = () => {
             
             {loading ? (
               <Typography>Loading sprints...</Typography>
-            ) : sprints.length > 0 ? (
+            ) : Array.isArray(sprints) && sprints.length > 0 ? (
               <Grid container spacing={3}>
                 {sprints.map((sprint) => (
                   <Grid item xs={12} md={4} key={sprint._id}>
@@ -231,6 +256,12 @@ const Dashboard = () => {
         onClose={() => setShowAddSprintForm(false)}
         onSave={handleSprintAdded}
         projectId={selectedProject}
+      />
+
+      <AddProjectForm 
+        open={showAddProjectForm}
+        onClose={() => setShowAddProjectForm(false)}
+        onSave={handleProjectAdded}
       />
     </Container>
   );

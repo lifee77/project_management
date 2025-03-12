@@ -8,7 +8,8 @@ import {
   Card,
   CardContent,
   Chip,
-  Divider
+  Divider,
+  CircularProgress
 } from '@mui/material';
 import { getTasks, updateTask } from '../services/api';
 
@@ -39,6 +40,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ sprintId }) => {
     done: { id: 'done', title: 'Done', tasks: [] }
   });
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (sprintId) {
@@ -49,12 +51,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ sprintId }) => {
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const response = await getTasks({ sprintId });
-      
-      // Group tasks by status
-      const updatedColumns = { ...columns };
+      setError(null);
+      const response = await getTasks({ sprint: sprintId });
       
       // Reset tasks in all columns
+      const updatedColumns = { ...columns };
       Object.keys(updatedColumns).forEach(colId => {
         updatedColumns[colId].tasks = [];
       });
@@ -72,6 +73,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ sprintId }) => {
       setColumns(updatedColumns);
     } catch (error) {
       console.error('Error fetching tasks:', error);
+      setError('Failed to load tasks. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -152,7 +154,30 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ sprintId }) => {
   };
 
   if (loading) {
-    return <Typography>Loading tasks...</Typography>;
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return <Typography color="error">{error}</Typography>;
+  }
+
+  const allTasksCount = Object.values(columns).reduce(
+    (count, column) => count + column.tasks.length, 
+    0
+  );
+
+  if (allTasksCount === 0) {
+    return (
+      <Paper sx={{ p: 3, textAlign: 'center', mt: 2 }}>
+        <Typography>
+          No tasks found for this sprint. Add tasks using the "Add Task" button.
+        </Typography>
+      </Paper>
+    );
   }
 
   return (
