@@ -1,51 +1,49 @@
 import React from 'react';
-import { Link as RouterLink } from 'react-router-dom';
-import {
-  AppBar,
-  Toolbar,
-  Typography,
+import { 
+  AppBar, 
+  Toolbar, 
+  Typography, 
+  Box, 
   Button,
-  Box,
   Container
 } from '@mui/material';
-import AssignmentIcon from '@mui/icons-material/Assignment';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 
 const Header = () => {
+  const navigate = useNavigate();
+
   return (
     <AppBar position="static">
-      <Container maxWidth="xl">
+      <Container maxWidth="lg">
         <Toolbar disableGutters>
-          <AssignmentIcon sx={{ mr: 2 }} />
           <Typography
             variant="h6"
-            noWrap
             component={RouterLink}
             to="/"
             sx={{
               mr: 2,
-              display: 'flex',
-              fontFamily: 'monospace',
               fontWeight: 700,
-              letterSpacing: '.1rem',
               color: 'inherit',
               textDecoration: 'none',
+              flexGrow: { xs: 1, md: 0 }
             }}
           >
-            PROJECT MANAGER
+            Project Management
           </Typography>
           
-          <Box sx={{ flexGrow: 1, display: 'flex' }}>
+          <Box sx={{ flexGrow: 1, display: 'flex', ml: 4 }}>
             <Button
+              color="inherit"
               component={RouterLink}
               to="/"
-              sx={{ my: 2, color: 'white', display: 'block' }}
             >
               Dashboard
             </Button>
+            
             <Button
+              color="inherit"
               component={RouterLink}
               to="/backlog"
-              sx={{ my: 2, color: 'white', display: 'block' }}
             >
               Backlog
             </Button>

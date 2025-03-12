@@ -11,7 +11,8 @@ import {
   Select,
   MenuItem,
   Box,
-  FormHelperText
+  FormHelperText,
+  SelectChangeEvent
 } from '@mui/material';
 import { createSprint } from '../services/api';
 
@@ -32,23 +33,39 @@ const AddSprintForm: React.FC<AddSprintFormProps> = ({
     name: '',
     startDate: '',
     endDate: '',
-    isActive: false
+    isActive: 'false' // Changed to string for compatibility with MUI
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
+  const handleTextFieldChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData({
       ...formData,
-      [name as string]: value
+      [name]: value
     });
     
     // Clear error when field is edited
-    if (errors[name as string]) {
+    if (errors[name]) {
       setErrors({
         ...errors,
-        [name as string]: ''
+        [name]: ''
+      });
+    }
+  };
+
+  const handleSelectChange = (e: SelectChangeEvent) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value
+    });
+    
+    // Clear error when field is edited
+    if (errors[name]) {
+      setErrors({
+        ...errors,
+        [name]: ''
       });
     }
   };
@@ -85,7 +102,8 @@ const AddSprintForm: React.FC<AddSprintFormProps> = ({
       setIsSubmitting(true);
       await createSprint({
         ...formData,
-        project: projectId
+        project: projectId,
+        isActive: formData.isActive === 'true' // Convert back to boolean for API
       });
       onSave();
       resetForm();
@@ -101,7 +119,7 @@ const AddSprintForm: React.FC<AddSprintFormProps> = ({
       name: '',
       startDate: '',
       endDate: '',
-      isActive: false
+      isActive: 'false'
     });
     setErrors({});
   };
@@ -125,7 +143,7 @@ const AddSprintForm: React.FC<AddSprintFormProps> = ({
             fullWidth
             variant="outlined"
             value={formData.name}
-            onChange={handleChange}
+            onChange={handleTextFieldChange}
             error={!!errors.name}
             helperText={errors.name}
             required
@@ -140,7 +158,7 @@ const AddSprintForm: React.FC<AddSprintFormProps> = ({
               fullWidth
               variant="outlined"
               value={formData.startDate}
-              onChange={handleChange}
+              onChange={handleTextFieldChange}
               error={!!errors.startDate}
               helperText={errors.startDate}
               InputLabelProps={{ shrink: true }}
@@ -157,7 +175,7 @@ const AddSprintForm: React.FC<AddSprintFormProps> = ({
               fullWidth
               variant="outlined"
               value={formData.endDate}
-              onChange={handleChange}
+              onChange={handleTextFieldChange}
               error={!!errors.endDate}
               helperText={errors.endDate}
               InputLabelProps={{ shrink: true }}
@@ -174,10 +192,10 @@ const AddSprintForm: React.FC<AddSprintFormProps> = ({
                 name="isActive"
                 value={formData.isActive}
                 label="Status"
-                onChange={handleChange}
+                onChange={handleSelectChange}
               >
-                <MenuItem value={false}>Inactive</MenuItem>
-                <MenuItem value={true}>Active</MenuItem>
+                <MenuItem value="false">Inactive</MenuItem>
+                <MenuItem value="true">Active</MenuItem>
               </Select>
               <FormHelperText>Set to active if this is the current sprint</FormHelperText>
             </FormControl>

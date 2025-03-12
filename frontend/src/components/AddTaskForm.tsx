@@ -10,7 +10,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Box
+  Box,
+  SelectChangeEvent
 } from '@mui/material';
 import { createTask } from '../services/api';
 
@@ -39,18 +40,34 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
+  const handleTextFieldChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData({
       ...formData,
-      [name as string]: value
+      [name]: value
     });
     
     // Clear error when field is edited
-    if (errors[name as string]) {
+    if (errors[name]) {
       setErrors({
         ...errors,
-        [name as string]: ''
+        [name]: ''
+      });
+    }
+  };
+
+  const handleSelectChange = (e: SelectChangeEvent) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value
+    });
+    
+    // Clear error when field is edited
+    if (errors[name]) {
+      setErrors({
+        ...errors,
+        [name]: ''
       });
     }
   };
@@ -119,7 +136,7 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({
             fullWidth
             variant="outlined"
             value={formData.title}
-            onChange={handleChange}
+            onChange={handleTextFieldChange}
             error={!!errors.title}
             helperText={errors.title}
             required
@@ -135,7 +152,7 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({
               fullWidth
               variant="outlined"
               value={formData.description}
-              onChange={handleChange}
+              onChange={handleTextFieldChange}
             />
           </Box>
           
@@ -148,7 +165,7 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({
                 name="status"
                 value={formData.status}
                 label="Status"
-                onChange={handleChange}
+                onChange={handleSelectChange}
               >
                 <MenuItem value="todo">To Do</MenuItem>
                 <MenuItem value="in-progress">In Progress</MenuItem>
@@ -167,7 +184,7 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({
                 name="priority"
                 value={formData.priority}
                 label="Priority"
-                onChange={handleChange}
+                onChange={handleSelectChange}
               >
                 <MenuItem value="low">Low</MenuItem>
                 <MenuItem value="medium">Medium</MenuItem>
@@ -185,7 +202,7 @@ const AddTaskForm: React.FC<AddTaskFormProps> = ({
               fullWidth
               variant="outlined"
               value={formData.assignee}
-              onChange={handleChange}
+              onChange={handleTextFieldChange}
             />
           </Box>
         </DialogContent>

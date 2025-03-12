@@ -17,9 +17,10 @@ const BacklogView = () => {
 
   const fetchSprints = async () => {
     if (!selectedProject) return;
+    
     try {
       setLoading(true);
-      const response = await getSprints(selectedProject);
+      const response = await getSprints({ project: selectedProject });
       setSprints(response.data);
     } catch (error) {
       console.error('Error fetching sprints:', error);
@@ -33,25 +34,27 @@ const BacklogView = () => {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4 }}>
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Typography variant="h4" component="h1" gutterBottom>
+        Backlog
+      </Typography>
+      
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Backlog
-        </Typography>
-        
-        <ProjectSelector
-          selectedProject={selectedProject}
-          onProjectChange={handleProjectChange}
+        <ProjectSelector 
+          value={selectedProject}
+          onChange={handleProjectChange}
         />
-        
-        {selectedProject && (
-          <BacklogList 
-            projectId={selectedProject} 
-            sprints={sprints}
-            onTaskAdded={fetchSprints}
-          />
-        )}
       </Box>
+      
+      {selectedProject ? (
+        <BacklogList 
+          projectId={selectedProject} 
+          sprints={sprints} 
+          onTaskUpdate={fetchSprints}
+        />
+      ) : (
+        <Typography>Please select a project to view its backlog.</Typography>
+      )}
     </Container>
   );
 };
